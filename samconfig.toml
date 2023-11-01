@@ -15,16 +15,13 @@ lint = true
 capabilities = "CAPABILITY_IAM"
 
 [default.deploy.parameters]
-confirm_changeset = true
-resolve_s3 = true
+confirm_changeset = false
 region = "eu-west-1"
-image_repositories = []
-capabilities = "CAPABILITY_IAM"
-s3_prefix = "sam-deployment"
-parameter_overrides = "Environment=\"prod\""
-
-[default.package.parameters]
 resolve_s3 = true
+s3_prefix = "sam-deployment"
+capabilities = "CAPABILITY_IAM"
+parameter_overrides = "Environment=\"prod\""
+image_repositories = []
 
 [default.sync.parameters]
 watch = true

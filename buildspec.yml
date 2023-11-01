@@ -1,11 +1,11 @@
 version: 0.2
 phases:
   install:
-    runtime-versions:
-        python: 3.8
-  build:
     commands:
-      - sam package --template-file template.yaml --s3-bucket my-ssl-test-bck --output-template-file packaged.yaml
+      - aws cloudformation package --template-file template.yaml --s3-bucket samtestpackage123 --output-template-file packaged.yaml
+
 artifacts:
+  type: zip
   files:
+    - template.yaml
     - packaged.yaml
