@@ -16,6 +16,17 @@ Parameters:
     Default: prod
     Description: "Support for several environment in parallel: dev, test, acc, prod."
 
+Metadata:
+  AWS::ServerlessRepo::Application:
+    Name: my-sam-app
+    Description: Enterprise Service Bus
+    Author: ktashoska
+    LicenseUrl: LICENCE.txt
+    ReadmeUrl: README.md
+    Labels: ['poc']
+    HomePageUrl: https://github.com/ktashoska/sam-deployment
+    SemanticVersion: 0.0.1
+    SourceCodeUrl: https://github.com/ktashoska/sam-deployment
 
 Resources:
 
