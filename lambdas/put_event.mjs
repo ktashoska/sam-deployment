@@ -7,12 +7,12 @@ import {
     source = "woodwing.image.processing",
     detailType = "channel-processing",
     resources = [],
-    detail = {app: "article-a23", 
-		"image-id": "img-1234-df45-445", 
-		'pr-type': "A-23-X", 
-		format: "png", 
-		'original-path': "file://123/img/img1", 
-		'size': "346"}
+    detail = { "app": "article-a23",
+    "image-id": "flower2.jpg",
+    "pr-type": "A-23-X",
+    "format": "png",
+    "original-path": "s3://qonqord-source-bucket/images/",
+    "size": "346"}
 
   ) => {
     const client = new EventBridgeClient({});
