@@ -2,20 +2,21 @@ import {
     EventBridgeClient,
     PutEventsCommand,
   } from "@aws-sdk/client-eventbridge";
-  
+   
   export const putEvents = async (
-    source = "woodwing.image.processing",
-    detailType = "channel-processing",
-    resources = [],
+   event
+
+  ) => {
+    const client = new EventBridgeClient({});
+    console.log(event);
+    source = "woodwing.image.processing";
+    detailType = "channel-processing";
     detail = { "app": "article-a23",
     "image-id": "flower2.jpg",
     "pr-type": "A-23-X",
     "format": "png",
     "original-path": "s3://qonqord-source-bucket/images/",
-    "size": "346"}
-
-  ) => {
-    const client = new EventBridgeClient({});
+    "size": "346"};
   
     const response = await client.send(
       new PutEventsCommand({
@@ -39,7 +40,7 @@ import {
 
   
   export const handler = async (event, context) => {
-    const result = await putEvents();
+    const result = await putEvents(event);
     return {
         'statusCode': 200,
         'body': JSON.stringify(result)
