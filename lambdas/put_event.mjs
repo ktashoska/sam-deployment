@@ -2,22 +2,23 @@ import {
   EventBridgeClient,
   PutEventsCommand,
 } from "@aws-sdk/client-eventbridge";
-
+import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import { DynamoDBDocumentClient, GetCommand} from "@aws-sdk/lib-dynamodb";
 
 const dynamoDBClient = new DynamoDBClient();
 const docClient = new DynamoDBDocumentClient(dynamoDBClient);
+const client = new EventBridgeClient({});
 
 const envVars = {
   ConfigurationTable: process.env.CONFIGURATION_TABLE_NAME
 
 }
 
-export const putEvents = async (
- event
+const putEvents = async (event) => {
 
-) => {
-  const client = new EventBridgeClient({});
+  try{
+
+  const body = JSON.parse(event["body"]);
 
   const commandGet = new GetCommand({
     TableName: envVars.ConfigurationTable,
@@ -26,10 +27,14 @@ export const putEvents = async (
     },
 });
 
-const configuration_val = await docClient.send(commandGet);
+  const configuration_val = await docClient.send(commandGet);
+  
+  console.log("CONF", configuration_val);
 
   let source = "woodwing.image.processing";
   let detailType = "channel-processing";
+  
+  let event_ids = [];
   
   for(let i=0;i<body['object-ids'].length;i++)
   {
@@ -37,8 +42,8 @@ const configuration_val = await docClient.send(commandGet);
     "configuration-id": body['configuration-id'],
     "object-id": body['object-ids'][i],
     "original-path": "s3://qonqord-source-bucket/images/",
-    "channel-id": configuration_val['channel-id'],
-    "schema-id": configuration_val['schema-id']
+    "channel-id": configuration_val['Item']['channel-id'],
+    "schema-id": configuration_val['Item']['schema-id']
     };
 
     const response = await client.send(
@@ -54,15 +59,17 @@ const configuration_val = await docClient.send(commandGet);
         ],
       }),
     );
-
-    console.log("PutEvents response:");
-    console.log(response);
+    event_ids.push({"EventID": response.Entries[0].EventId});
     };
 
     return {
         'statusCode': 200,
-        'body': JSON.stringify("Events sucesfully created!")
+        'body': event_ids
   };
+}catch (error) {
+  console.error("Error in event preparation:", error);
+  throw error;
+}
 };
 
 
