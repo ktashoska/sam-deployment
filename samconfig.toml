@@ -17,7 +17,6 @@ capabilities = "CAPABILITY_IAM"
 [default.deploy.parameters]
 confirm_changeset = false
 region = "eu-west-1"
-resolve_s3 = true
 s3_prefix = "sam-deployment"
 capabilities = "CAPABILITY_IAM"
 parameter_overrides = "Environment=\"prod\""
