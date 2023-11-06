@@ -118,6 +118,8 @@ Resources:
           - Effect: Allow
             Action:
               - dynamodb:GetItem
+            Resource:
+              - !GetAtt ConfigurationDetailsTable.Arn
 
   # LambdaRole1:
   #   Type: AWS::IAM::Role
