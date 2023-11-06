@@ -2,7 +2,7 @@ version: 0.2
 phases:
   install:
     commands:
-      - aws cloudformation package --template-file template.yaml --s3-bucket samtestpackage123 --output-template-file packaged.yaml
+      - aws cloudformation package --template-file template.yaml --s3-bucket $S3_BUCKET --output-template-file packaged.yaml
 
 artifacts:
   type: zip
