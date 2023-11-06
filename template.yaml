@@ -38,38 +38,38 @@ Resources:
       - "${ENV}-enterprise-service-bus"
       - ENV: !Ref Environment
 
-  LambdaRole:
-    Type: AWS::IAM::Role
-    Properties:
-      AssumeRolePolicyDocument:
-        Version: '2012-10-17'
-        Statement:
-          - Effect: Allow
-            Principal:
-              Service: lambda.amazonaws.com
-            Action: sts:AssumeRole
-      Policies:
-        - PolicyName: EventBridgeBusPutEvent
-          PolicyDocument:
-            Version: '2012-10-17'
-            Statement:
-              - Effect: Allow
-                Action: 'events:PutEvents'
-                Resource: !GetAtt EventBus.Arn
-              - Effect: Allow
-                Action:
-                  - dynamodb:GetItem
-                Resource:
-                  - !GetAtt ConfigurationDetailsTable.Arn
-              - Effect: Allow
-                Action: 'logs:CreateLogGroup'
-                Resource: !Sub 'arn:aws:logs:${AWS::Region}:${AWS::AccountId}:*'
-              - Effect: Allow
-                Action:
-                  - 'logs:CreateLogStream'
-                  - 'logs:PutLogEvents'
-                Resource: !Sub 'arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/${FunctionName}:*'
-                  - FunctionName: !Ref EventBridgeBusPutEventFunc
+  # LambdaRole:
+  #   Type: AWS::IAM::Role
+  #   Properties:
+  #     AssumeRolePolicyDocument:
+  #       Version: '2012-10-17'
+  #       Statement:
+  #         - Effect: Allow
+  #           Principal:
+  #             Service: lambda.amazonaws.com
+  #           Action: sts:AssumeRole
+  #     Policies:
+  #       - PolicyName: EventBridgeBusPutEvent
+  #         PolicyDocument:
+  #           Version: '2012-10-17'
+  #           Statement:
+  #             - Effect: Allow
+  #               Action: 'events:PutEvents'
+  #               Resource: !GetAtt EventBus.Arn
+  #             - Effect: Allow
+  #               Action:
+  #                 - dynamodb:GetItem
+  #               Resource:
+  #                 - !GetAtt ConfigurationDetailsTable.Arn
+  #             - Effect: Allow
+  #               Action: 'logs:CreateLogGroup'
+  #               Resource: !Sub 'arn:aws:logs:${AWS::Region}:${AWS::AccountId}:*'
+  #             - Effect: Allow
+  #               Action:
+  #                 - 'logs:CreateLogStream'
+  #                 - 'logs:PutLogEvents'
+  #               Resource: !Sub 'arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/${FunctionName}:*'
+  #                 - FunctionName: !Ref EventBridgeBusPutEventFunc
 
 
   EventBridgeBusPutEventApi:
@@ -88,7 +88,7 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       #FunctionName: EventBridgeBusPutEventFunc
-      Role: !GetAtt LambdaRole.Arn
+      #Role: !GetAtt LambdaRole.Arn
       CodeUri: lambdas/
       Handler: put_event.handler
       Runtime: nodejs18.x
@@ -110,37 +110,45 @@ Resources:
           EVENTBRIDGE_BUS: !GetAtt EventBus.Arn
           CONFIGURATION_TABLE_NAME:
             !Select [1, !Split ['/', !GetAtt ConfigurationDetailsTable.Arn]]
-
-  LambdaRole1:
-    Type: AWS::IAM::Role
-    Properties:
-      AssumeRolePolicyDocument:
-        Version: '2012-10-17'
+      Policies:
         Statement:
           - Effect: Allow
-            Principal:
-              Service: lambda.amazonaws.com
-            Action: sts:AssumeRole
-      Policies:
-        - PolicyName: TriggerFunctionOnEvent
-          PolicyDocument:
-            Version: '2012-10-17'
-            Statement:
-              - Effect: Allow
-                Action: 'logs:CreateLogGroup'
-                Resource: !Sub 'arn:aws:logs:${AWS::Region}:${AWS::AccountId}:*'
-              - Effect: Allow
-                Action:
-                  - 'logs:CreateLogStream'
-                  - 'logs:PutLogEvents'
-                Resource: !Sub 'arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/${FunctionName}:*'
-                  - FunctionName: !Ref TriggeredByEventFunc
+            Action: 'events:PutEvents'
+            Resource: !GetAtt EventBus.Arn
+          - Effect: Allow
+            Action:
+              - dynamodb:GetItem
+
+  # LambdaRole1:
+  #   Type: AWS::IAM::Role
+  #   Properties:
+  #     AssumeRolePolicyDocument:
+  #       Version: '2012-10-17'
+  #       Statement:
+  #         - Effect: Allow
+  #           Principal:
+  #             Service: lambda.amazonaws.com
+  #           Action: sts:AssumeRole
+  #     Policies:
+  #       - PolicyName: TriggerFunctionOnEvent
+  #         PolicyDocument:
+  #           Version: '2012-10-17'
+  #           Statement:
+  #             - Effect: Allow
+  #               Action: 'logs:CreateLogGroup'
+  #               Resource: !Sub 'arn:aws:logs:${AWS::Region}:${AWS::AccountId}:*'
+  #             - Effect: Allow
+  #               Action:
+  #                 - 'logs:CreateLogStream'
+  #                 - 'logs:PutLogEvents'
+  #               Resource: !Sub 'arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/${FunctionName}:*'
+  #                 - FunctionName: !Ref TriggeredByEventFunc
 
   TriggeredByEventFunc:
     Type: AWS::Serverless::Function
     Properties:
       #FunctionName: TriggeredByEventFunc
-      Role: !GetAtt LambdaRole1.Arn
+      #Role: !GetAtt LambdaRole1.Arn
       CodeUri: lambdas/
       Handler: triggered_by_event.handler
       Runtime: nodejs18.x
