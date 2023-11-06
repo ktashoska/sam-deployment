@@ -15,4 +15,5 @@ phases:
                     --region ${ENV_REGION}
                     --s3-bucket ${ENV_BUCKET}
                     --no-fail-on-empty-changeset
+                    --parameter-overrides Environment={$ENV_TEMPLATE_ENVS}
                     --role-arn ${ENV_CLOUDFORMATION_EXECUTION_ROLE}
