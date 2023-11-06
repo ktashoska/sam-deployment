@@ -68,7 +68,8 @@ Resources:
                 Action:
                   - 'logs:CreateLogStream'
                   - 'logs:PutLogEvents'
-                Resource: !Sub 'arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/EventBridgeBusPutEventFunc:*'
+                Resource: !Sub 'arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/${FunctionName}:*'
+                  - FunctionName: !Ref EventBridgeBusPutEventFunc
 
 
   EventBridgeBusPutEventApi:
@@ -132,7 +133,8 @@ Resources:
                 Action:
                   - 'logs:CreateLogStream'
                   - 'logs:PutLogEvents'
-                Resource: !Sub 'arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/TriggeredByEventFunc:*'
+                Resource: !Sub 'arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/${FunctionName}:*'
+                  - FunctionName: !Ref TriggeredByEventFunc
 
   TriggeredByEventFunc:
     Type: AWS::Serverless::Function
