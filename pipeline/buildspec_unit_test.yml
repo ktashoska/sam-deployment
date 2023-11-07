@@ -2,8 +2,10 @@ version: 0.2
 phases:
   install:
     runtime-versions:
-      python: 3.8
+      nodejs: latest
   build:
     commands:
-      # trigger the unit tests here
       - echo 'Running unit tests'
+      - cd lambdas
+      - npm install
+      - npm run test
