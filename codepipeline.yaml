@@ -44,7 +44,7 @@ Parameters:
     Default: "eu-west-1"
   TestingStackName:
     Type: String
-    Default: "sam-app-dev"
+    Default: "sam-deployment-dev"
   TestingPipelineExecutionRole:
     Type: String
     Default: "arn:aws:iam::738903990843:role/aws-sam-cli-managed-dev-pipel-PipelineExecutionRole-gMv2tshSFBar"
@@ -65,7 +65,7 @@ Parameters:
     Default: "eu-west-1"
   ProdStackName:
     Type: String
-    Default: "sam-app-prod"
+    Default: "sam-deployment-prod"
   ProdPipelineExecutionRole:
     Type: String
     Default: "arn:aws:iam::738903990843:role/aws-sam-cli-managed-prod-pipe-PipelineExecutionRole-CyzV4hVQwm0i"
