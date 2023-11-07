@@ -1,2 +1,1 @@
-Some text here. 
-And here.
+![Alt text](image.png)
