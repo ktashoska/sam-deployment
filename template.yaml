@@ -156,6 +156,18 @@ Resources:
       Runtime: nodejs18.x
       Architectures:
         - arm64
+      Policies:
+        Statement:
+          - Effect: Allow
+            Action:
+              - s3:Get*
+              - s3:Put*
+              - s3:List*
+            Resource:
+              - "arn:aws:s3:::qonqord-destination-bucket/*"
+              - "arn:aws:s3:::qonqord-source-bucket/*"
+              - "arn:aws:s3:::qonqord-destination-bucket"
+              - "arn:aws:s3:::qonqord-source-bucket"
 
 
   EventRule0:

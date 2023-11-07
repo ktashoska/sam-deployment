@@ -3,7 +3,7 @@ const client = new S3Client({});
 
 export const handler = async (event, context) => {
     const originalPath = event.detail["original-path"];
-    const imageId = "1";//event.detail["image-id"];
+    const imageId = "flower1.jpg";//event.detail["image-id"];
 
     // Extracting the source bucket from the original path
     const sourceBucket = originalPath.split("/")[2]; 
