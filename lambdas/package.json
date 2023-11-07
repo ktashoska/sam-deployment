@@ -12,6 +12,8 @@
     "dependencies": {
       "chai": "^4.3.6",
       "mocha": "^10.1.0",
-      "@aws-sdk/client-s3": "latest"
+      "@aws-sdk/client-eventbridge": "latest",
+      "@aws-sdk/client-dynamodb":"latest",
+      "@aws-sdk/lib-dynamodb":"latest"
     }
   }
