@@ -44,7 +44,7 @@ Parameters:
     Default: "eu-west-1"
   TestingStackName:
     Type: String
-    Default: "sam-deployment-dev"
+    Default: "sam-app-dev"
   TestingPipelineExecutionRole:
     Type: String
     Default: "arn:aws:iam::738903990843:role/aws-sam-cli-managed-dev-pipel-PipelineExecutionRole-gMv2tshSFBar"
@@ -65,7 +65,7 @@ Parameters:
     Default: "eu-west-1"
   ProdStackName:
     Type: String
-    Default: "sam-deployment-prod"
+    Default: "sam-app-prod"
   ProdPipelineExecutionRole:
     Type: String
     Default: "arn:aws:iam::738903990843:role/aws-sam-cli-managed-prod-pipe-PipelineExecutionRole-CyzV4hVQwm0i"
@@ -176,18 +176,18 @@ Resources:
               RunOrder: 2
 
         # Uncomment and modify the following step for running the unit-tests
-        - Name: UnitTest
-          Actions:
-            - Name: UnitTest
-              ActionTypeId:
-                Category: Build
-                Owner: AWS
-                Provider: CodeBuild
-                Version: "1"
-              Configuration:
-                ProjectName: !Ref CodeBuildProjectUnitTest
-              InputArtifacts:
-                - Name: SourceCodeAsZip
+        # - Name: UnitTest
+        #   Actions:
+        #     - Name: UnitTest
+        #       ActionTypeId:
+        #         Category: Build
+        #         Owner: AWS
+        #         Provider: CodeBuild
+        #         Version: "1"
+        #       Configuration:
+        #         ProjectName: !Ref CodeBuildProjectUnitTest
+        #       InputArtifacts:
+        #         - Name: SourceCodeAsZip
 
         - !If
           - IsFeatureBranchPipeline
@@ -243,7 +243,6 @@ Resources:
                       {"name": "ENV_PIPELINE_EXECUTION_ROLE", "value": "${TestingPipelineExecutionRole}"},
                       {"name": "ENV_CLOUDFORMATION_EXECUTION_ROLE", "value": "${TestingCloudFormationExecutionRole}"},
                       {"name": "ENV_BUCKET", "value": "${TestingArtifactBucket}"},
-                      {"name": "ENV_TEMPLATE_ENVS", "value": "dev"},
                       {"name": "ENV_IMAGE_REPOSITORY", "value": "${TestingImageRepository}"}
                     ]
                 InputArtifacts:
@@ -292,7 +291,6 @@ Resources:
                       {"name": "ENV_PIPELINE_EXECUTION_ROLE", "value": "${ProdPipelineExecutionRole}"},
                       {"name": "ENV_CLOUDFORMATION_EXECUTION_ROLE", "value": "${ProdCloudFormationExecutionExeRole}"},
                       {"name": "ENV_BUCKET", "value": "${ProdArtifactBucket}"},
-                      {"name": "ENV_TEMPLATE_ENVS", "value": "prod"},
                       {"name": "ENV_IMAGE_REPOSITORY", "value": "${ProdImageRepository}"}
                     ]
                 InputArtifacts:
@@ -431,7 +429,7 @@ Resources:
                   - "codebuild:BatchGetBuilds"
                 Resource:
                   # Uncomment the line below to enable the unit-tests
-                  - !GetAtt CodeBuildProjectUnitTest.Arn
+                  # - !GetAtt CodeBuildProjectUnitTest.Arn
                   - !If
                     - IsFeatureBranchPipeline
                     - !GetAtt CodeBuildProjectBuildAndDeployFeature.Arn
@@ -541,19 +539,19 @@ Resources:
                     aws:ResourceTag/Role: pipeline-execution-role
 
   # Uncomment and modify the following step for running the unit-tests
-  CodeBuildProjectUnitTest:
-    Type: AWS::CodeBuild::Project
-    Properties:
-      Artifacts:
-        Type: CODEPIPELINE
-      Environment:
-        Type: ARM_CONTAINER
-        ComputeType: BUILD_GENERAL1_SMALL
-        Image: aws/codebuild/amazonlinux2-aarch64-standard:2.0
-      ServiceRole: !GetAtt CodeBuildServiceRole.Arn
-      Source:
-        Type: CODEPIPELINE
-        BuildSpec: pipeline/buildspec_unit_test.yml
+  # CodeBuildProjectUnitTest:
+  #   Type: AWS::CodeBuild::Project
+  #   Properties:
+  #     Artifacts:
+  #       Type: CODEPIPELINE
+  #     Environment:
+  #       Type: LINUX_CONTAINER
+  #       ComputeType: BUILD_GENERAL1_SMALL
+  #       Image: aws/codebuild/amazonlinux2-x86_64-standard:3.0
+  #     ServiceRole: !GetAtt CodeBuildServiceRole.Arn
+  #     Source:
+  #       Type: CODEPIPELINE
+  #       BuildSpec: pipeline/buildspec_unit_test.yml
 
   CodeBuildProjectBuildAndDeployFeature:
     Condition: IsFeatureBranchPipeline
@@ -562,9 +560,9 @@ Resources:
       Artifacts:
         Type: CODEPIPELINE
       Environment:
-        Type: ARM_CONTAINER
+        Type: LINUX_CONTAINER
         ComputeType: BUILD_GENERAL1_SMALL
-        Image: aws/codebuild/amazonlinux2-aarch64-standard:2.0
+        Image: aws/codebuild/amazonlinux2-x86_64-standard:3.0
         PrivilegedMode: true
         EnvironmentVariables:
           - Name: SAM_TEMPLATE
@@ -593,9 +591,9 @@ Resources:
       Artifacts:
         Type: CODEPIPELINE
       Environment:
-        Type: ARM_CONTAINER
+        Type: LINUX_CONTAINER
         ComputeType: BUILD_GENERAL1_SMALL
-        Image: aws/codebuild/amazonlinux2-aarch64-standard:2.0
+        Image: aws/codebuild/amazonlinux2-x86_64-standard:3.0
         PrivilegedMode: true
         EnvironmentVariables:
           - Name: SAM_TEMPLATE
@@ -629,9 +627,9 @@ Resources:
   #     Artifacts:
   #       Type: CODEPIPELINE
   #     Environment:
-  #       Type: ARM_CONTAINER
+  #       Type: LINUX_CONTAINER
   #       ComputeType: BUILD_GENERAL1_SMALL
-  #       Image: aws/codebuild/amazonlinux2-aarch64-standard:2.0
+  #       Image: aws/codebuild/amazonlinux2-x86_64-standard:3.0
   #     ServiceRole: !GetAtt CodeBuildServiceRole.Arn
   #     Source:
   #       Type: CODEPIPELINE
@@ -644,9 +642,9 @@ Resources:
       Artifacts:
         Type: CODEPIPELINE
       Environment:
-        Type: ARM_CONTAINER
+        Type: LINUX_CONTAINER
         ComputeType: BUILD_GENERAL1_SMALL
-        Image: aws/codebuild/amazonlinux2-aarch64-standard:2.0
+        Image: aws/codebuild/amazonlinux2-x86_64-standard:3.0
       ServiceRole: !GetAtt CodeBuildServiceRole.Arn
       Source:
         Type: CODEPIPELINE
