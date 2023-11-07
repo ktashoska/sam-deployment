@@ -180,7 +180,7 @@ Resources:
   PermissionForEvent0ToInvokeLambda:
     Type: AWS::Lambda::Permission
     Properties:
-      FunctionName: TriggeredByEventFunc
+      FunctionName: !Ref TriggeredByEventFunc
       Action: "lambda:InvokeFunction"
       Principal: "events.amazonaws.com"
       SourceArn: !GetAtt EventRule0.Arn
