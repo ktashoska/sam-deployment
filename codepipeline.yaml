@@ -547,7 +547,7 @@ Resources:
       Environment:
         Type: ARM_CONTAINER
         ComputeType: BUILD_GENERAL1_SMALL
-        Image: aws/codebuild/amazonlinux2-aarch64-standard:2.0
+        Image: aws/codebuild/amazonlinux2-aarch64-standard:3.0
       ServiceRole: !GetAtt CodeBuildServiceRole.Arn
       Source:
         Type: CODEPIPELINE
@@ -562,7 +562,7 @@ Resources:
       Environment:
         Type: ARM_CONTAINER
         ComputeType: BUILD_GENERAL1_SMALL
-        Image: aws/codebuild/amazonlinux2-aarch64-standard:2.0
+        Image: aws/codebuild/amazonlinux2-aarch64-standard:3.0
         PrivilegedMode: true
         EnvironmentVariables:
           - Name: SAM_TEMPLATE
@@ -593,7 +593,7 @@ Resources:
       Environment:
         Type: ARM_CONTAINER
         ComputeType: BUILD_GENERAL1_SMALL
-        Image: aws/codebuild/amazonlinux2-aarch64-standard:2.0
+        Image: aws/codebuild/amazonlinux2-aarch64-standard:3.0
         PrivilegedMode: true
         EnvironmentVariables:
           - Name: SAM_TEMPLATE
@@ -629,7 +629,7 @@ Resources:
   #     Environment:
   #       Type: ARM_CONTAINER
   #       ComputeType: BUILD_GENERAL1_SMALL
-  #       Image: aws/codebuild/amazonlinux2-aarch64-standard:2.0
+  #       Image: aws/codebuild/amazonlinux2-aarch64-standard:3.0
   #     ServiceRole: !GetAtt CodeBuildServiceRole.Arn
   #     Source:
   #       Type: CODEPIPELINE
@@ -644,7 +644,7 @@ Resources:
       Environment:
         Type: ARM_CONTAINER
         ComputeType: BUILD_GENERAL1_SMALL
-        Image: aws/codebuild/amazonlinux2-aarch64-standard:2.0
+        Image: aws/codebuild/amazonlinux2-aarch64-standard:3.0
       ServiceRole: !GetAtt CodeBuildServiceRole.Arn
       Source:
         Type: CODEPIPELINE
