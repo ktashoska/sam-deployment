@@ -1,0 +1,19 @@
+{
+    "name": "pahse_1",
+    "version": "1.0.0",
+    "description": "ESB phase 1",
+    "main": "app.js",
+    "repository": "/",
+    "author": "Xebia",
+    "license": "MIT",
+    "scripts": {
+      "test": "mocha tests/unit/"
+    },
+    "dependencies": {
+      "chai": "^4.3.6",
+      "mocha": "^10.1.0",
+      "@aws-sdk/client-eventbridge": "latest",
+      "@aws-sdk/client-dynamodb":"latest",
+      "@aws-sdk/lib-dynamodb":"latest"
+    }
+  }
