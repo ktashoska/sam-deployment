@@ -1,0 +1,341 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: 'Integration API sample
+
+  Send event to EventBridge bus with API call
+
+  '
+Globals:
+  Function:
+    Timeout: 25
+    MemorySize: 128
+Parameters:
+  Environment:
+    Type: String
+    Default: dev
+    Description: 'Support for several environment in parallel: dev, test, acc, prod.'
+  Source:
+    Type: String
+    Default: woodwing.image.processing
+    Description: 'The initiator for the processing. Example: woodwing.image.processing'
+  Action:
+    Type: String
+    Default: channel-processing
+    Description: 'The action thet will be performed. Example: channel-processing'
+Resources:
+  ConfigurationDetailsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      AttributeDefinitions:
+      - AttributeName: configuration-id
+        AttributeType: S
+      KeySchema:
+      - AttributeName: configuration-id
+        KeyType: HASH
+      BillingMode: PAY_PER_REQUEST
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
+  INS3Bucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName:
+        Fn::Sub:
+        - ${ENV}-in-object-processing
+        - ENV:
+            Ref: Environment
+  OUTS3Bucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName:
+        Fn::Sub:
+        - ${ENV}-out-object-processing
+        - ENV:
+            Ref: Environment
+  EventBus:
+    Type: AWS::Events::EventBus
+    Properties:
+      Name:
+        Fn::Sub:
+        - ${ENV}-enterprise-service-bus
+        - ENV:
+            Ref: Environment
+  InitiateObjectProcessingApi:
+    Type: AWS::Serverless::Api
+    Properties:
+      StageName: Dev
+      Auth:
+        ApiKeyRequired: true
+        UsagePlan:
+          CreateUsagePlan: PER_API
+          UsagePlanName:
+            Fn::Sub:
+            - ${ENV}ApiPlan
+            - ENV:
+                Ref: Environment
+  InitiateObjectProcessingFunc:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: InitiateObjectProcessingFunc
+      Handler: initiate_processing.handler
+      Runtime: nodejs18.x
+      Architectures:
+      - arm64
+      Events:
+        InitiateObjectProcessingFuncAPI:
+          Type: Api
+          Properties:
+            RestApiId:
+              Ref: InitiateObjectProcessingApi
+            Path: /
+            Method: post
+            Auth:
+              ApiKeyRequired: true
+      Environment:
+        Variables:
+          ENVIRONMENT:
+            Ref: Environment
+          EVENTBRIDGE_BUS:
+            Fn::GetAtt:
+            - EventBus
+            - Arn
+          CONFIGURATION_TABLE_NAME:
+            Fn::Select:
+            - 1
+            - Fn::Split:
+              - /
+              - Fn::GetAtt:
+                - ConfigurationDetailsTable
+                - Arn
+      Policies:
+        Statement:
+        - Effect: Allow
+          Action: events:PutEvents
+          Resource:
+            Fn::GetAtt:
+            - EventBus
+            - Arn
+        - Effect: Allow
+          Action:
+          - dynamodb:GetItem
+          Resource:
+          - Fn::GetAtt:
+            - ConfigurationDetailsTable
+            - Arn
+    Metadata:
+      SamResourceId: InitiateObjectProcessingFunc
+  DownloadObjectToS3Func:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: DownloadObjectToS3Func
+      Handler: download_object_to_s3.handler
+      Runtime: nodejs18.x
+      Architectures:
+      - arm64
+      Environment:
+        Variables:
+          ENVIRONMENT:
+            Ref: Environment
+          IN_BUCKET:
+            Ref: INS3Bucket
+      Policies:
+        Statement:
+        - Effect: Allow
+          Action:
+          - s3:Put*
+          Resource:
+            Fn::Sub:
+            - ${BUCKET}/*
+            - BUCKET:
+                Fn::GetAtt:
+                - INS3Bucket
+                - Arn
+    Metadata:
+      SamResourceId: DownloadObjectToS3Func
+  CreateEventFunc:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: CreateEventFunc
+      Handler: create_event.handler
+      Runtime: nodejs18.x
+      Architectures:
+      - arm64
+      Environment:
+        Variables:
+          ENVIRONMENT:
+            Ref: Environment
+          EVENTBRIDGE_BUS:
+            Fn::GetAtt:
+            - EventBus
+            - Arn
+      Policies:
+        Statement:
+        - Effect: Allow
+          Action: events:PutEvents
+          Resource:
+            Fn::GetAtt:
+            - EventBus
+            - Arn
+    Metadata:
+      SamResourceId: CreateEventFunc
+  UploadObjectStateMachine:
+    Type: AWS::Serverless::StateMachine
+    Properties:
+      DefinitionUri: ../../state-machine/upload-object-state-machine.asl.yaml
+      DefinitionSubstitutions:
+        DownloadObjectToS3FuncArn:
+          Fn::GetAtt:
+          - DownloadObjectToS3Func
+          - Arn
+        CreateEventFuncArn:
+          Fn::GetAtt:
+          - CreateEventFunc
+          - Arn
+      Policies:
+      - LambdaInvokePolicy:
+          FunctionName:
+            Ref: DownloadObjectToS3Func
+      - LambdaInvokePolicy:
+          FunctionName:
+            Ref: CreateEventFunc
+  StateMachineRole:
+    Type: AWS::IAM::Role
+    Properties:
+      Policies:
+      - PolicyName: InvokeStateMachineRolePolicy
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+          - Effect: Allow
+            Action: states:StartExecution
+            Resource:
+              Fn::GetAtt:
+              - UploadObjectStateMachine
+              - Arn
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service:
+            - events.amazonaws.com
+          Action:
+          - sts:AssumeRole
+  InitiateProcessingEventRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Description: initiate-object-processing
+      EventBusName:
+        Fn::Sub:
+        - ${ENV}-enterprise-service-bus
+        - ENV:
+            Ref: Environment
+      EventPattern:
+        source:
+        - Ref: Source
+        detail-type:
+        - Ref: Action
+      State: ENABLED
+      Targets:
+      - Id: StateMachineId
+        Arn:
+          Fn::GetAtt:
+          - UploadObjectStateMachine
+          - Arn
+        RoleArn:
+          Fn::GetAtt:
+          - StateMachineRole
+          - Arn
+  ObjectStatusManagementFunc:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ObjectStatusManagementFunc
+      Handler: object_status_mng.handler
+      Runtime: nodejs18.x
+      Architectures:
+      - arm64
+      Environment:
+        Variables:
+          ENVIRONMENT:
+            Ref: Environment
+    Metadata:
+      SamResourceId: ObjectStatusManagementFunc
+  FailedProcessingSNSTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: FailedObjectsDetails
+  ProcessingStatusEventRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Description: processing-status
+      EventBusName:
+        Fn::Sub:
+        - ${ENV}-enterprise-service-bus
+        - ENV:
+            Ref: Environment
+      EventPattern:
+        source:
+        - pixometry.image.processing
+        detail-type:
+        - update-object-status
+      State: ENABLED
+      Targets:
+      - Id: LambdaFunctionForStatusUpdate
+        Arn:
+          Fn::GetAtt:
+          - ObjectStatusManagementFunc
+          - Arn
+  PermissionForEventsToInvokeLambda:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName:
+        Ref: ObjectStatusManagementFunc
+      Action: lambda:InvokeFunction
+      Principal: events.amazonaws.com
+      SourceArn:
+        Fn::GetAtt:
+        - ProcessingStatusEventRule
+        - Arn
+  FailedProcessingEventRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Description: failed-processing-status
+      EventBusName:
+        Fn::Sub:
+        - ${ENV}-enterprise-service-bus
+        - ENV:
+            Ref: Environment
+      EventPattern:
+        source:
+        - pixometry.image.processing
+        detail-type:
+        - update-object-status
+      State: ENABLED
+      Targets:
+      - Id: SNSTopic
+        Arn:
+          Ref: FailedProcessingSNSTopic
+  PermissionForEventsToInvokeSNS:
+    Type: AWS::SNS::TopicPolicy
+    Properties:
+      PolicyDocument:
+        Statement:
+        - Sid: AllowServices
+          Effect: Allow
+          Principal:
+            Service:
+            - events.amazonaws.com
+          Action: sns:Publish
+          Resource:
+          - Ref: FailedProcessingSNSTopic
+      Topics:
+      - Ref: FailedProcessingSNSTopic
+Outputs:
+  InitiateObjectProcessingApiEndpoint:
+    Description: API Gateway endpoint URL for initializing the process
+    Value:
+      Fn::Sub:
+      - https://${APIID}.execute-api.${AWS::Region}.amazonaws.com/${ENV}/
+      - APIID:
+          Ref: InitiateObjectProcessingApi
+        ENV:
+          Ref: Environment

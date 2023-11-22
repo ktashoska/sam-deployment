@@ -15,6 +15,14 @@ Parameters:
     Type: String
     Default: dev
     Description: "Support for several environment in parallel: dev, test, acc, prod."
+  Source:
+    Type: String
+    Default: woodwing.image.processing
+    Description: "The initiator for the processing. Example: woodwing.image.processing"
+  Action:
+    Type: String
+    Default: channel-processing
+    Description: "The action thet will be performed. Example: channel-processing"
 
 Resources:
 
@@ -31,6 +39,20 @@ Resources:
       PointInTimeRecoverySpecification:
           PointInTimeRecoveryEnabled: true
 
+  INS3Bucket:
+    Type: 'AWS::S3::Bucket'
+    Properties:
+      BucketName: !Sub 
+      - "${ENV}-in-object-processing"
+      - ENV: !Ref Environment
+
+  OUTS3Bucket:
+    Type: 'AWS::S3::Bucket'
+    Properties:
+      BucketName: !Sub 
+      - "${ENV}-out-object-processing"
+      - ENV: !Ref Environment
+
   EventBus:
     Type: AWS::Events::EventBus
     Properties:
@@ -38,7 +60,7 @@ Resources:
       - "${ENV}-enterprise-service-bus"
       - ENV: !Ref Environment
 
-  EventBridgeBusPutEventApi:
+  InitiateObjectProcessingApi:
     Type: AWS::Serverless::Api
     Properties:
       StageName: Dev
@@ -50,20 +72,19 @@ Resources:
             - "${ENV}ApiPlan"
             - ENV: !Ref Environment
 
-  EventBridgeBusPutEventFunc:
+  InitiateObjectProcessingFunc:
     Type: AWS::Serverless::Function
     Properties:
-      #FunctionName: EventBridgeBusPutEventFunc
       CodeUri: lambdas/
-      Handler: put_event.handler
+      Handler: initiate_processing.handler
       Runtime: nodejs18.x
       Architectures:
         - arm64
       Events:
-        EventBridgeBusPutEventFuncAPI:
+        InitiateObjectProcessingFuncAPI:
           Type: Api
           Properties:
-            RestApiId: !Ref EventBridgeBusPutEventApi
+            RestApiId: !Ref InitiateObjectProcessingApi
             Path: /
             Method: post
             Auth:
@@ -86,59 +107,185 @@ Resources:
             Resource:
               - !GetAtt ConfigurationDetailsTable.Arn
 
-  TriggeredByEventFunc:
+  DownloadObjectToS3Func:
     Type: AWS::Serverless::Function
     Properties:
-      #FunctionName: TriggeredByEventFunc
       CodeUri: lambdas/
-      Handler: triggered_by_event.handler
+      Handler: download_object_to_s3.handler
       Runtime: nodejs18.x
       Architectures:
         - arm64
+      Environment:
+        Variables:
+          ENVIRONMENT: 
+            Ref: Environment
+          IN_BUCKET: 
+            !Ref INS3Bucket
       Policies:
         Statement:
           - Effect: Allow
             Action:
-              - s3:Get*
               - s3:Put*
-              - s3:List*
-            Resource:
-              - "arn:aws:s3:::qonqord-destination-bucket/*"
-              - "arn:aws:s3:::qonqord-source-bucket/*"
-              - "arn:aws:s3:::qonqord-destination-bucket"
-              - "arn:aws:s3:::qonqord-source-bucket"
+            Resource: !Sub 
+              - "${BUCKET}/*"
+              - BUCKET: !GetAtt INS3Bucket.Arn
 
-  EventRule0:
+  CreateEventFunc:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: lambdas/
+      Handler: create_event.handler
+      Runtime: nodejs18.x
+      Architectures:
+        - arm64
+      Environment:
+        Variables:
+          ENVIRONMENT: 
+            Ref: Environment
+          EVENTBRIDGE_BUS: !GetAtt EventBus.Arn
+      Policies:
+        Statement:
+          - Effect: Allow
+            Action: 'events:PutEvents'
+            Resource: !GetAtt EventBus.Arn
+
+  UploadObjectStateMachine:
+    Type: AWS::Serverless::StateMachine 
+    Properties:
+      DefinitionUri: state-machine/upload-object-state-machine.asl.yaml
+      DefinitionSubstitutions:
+        DownloadObjectToS3FuncArn: !GetAtt DownloadObjectToS3Func.Arn
+        CreateEventFuncArn: !GetAtt CreateEventFunc.Arn
+      Policies: 
+        - LambdaInvokePolicy:
+            FunctionName: !Ref DownloadObjectToS3Func
+        - LambdaInvokePolicy:
+            FunctionName: !Ref CreateEventFunc
+
+  StateMachineRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      Policies:
+        - PolicyName: InvokeStateMachineRolePolicy
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: 'states:StartExecution'
+                Resource: !GetAtt UploadObjectStateMachine.Arn
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - events.amazonaws.com
+            Action:
+              - 'sts:AssumeRole'
+
+
+  InitiateProcessingEventRule:
     Type: AWS::Events::Rule
     Properties:
-      Description: process-application-A-events
+      Description: initiate-object-processing
       EventBusName: !Sub 
         - "${ENV}-enterprise-service-bus"
         - ENV: !Ref Environment
       EventPattern:
         source:
-          - woodwing.image.processing
+          - !Ref Source
         detail-type:
-          - channel-processing
-      #Name: process-application-A-events
+          - !Ref Action
       State: ENABLED
       Targets:
-        - Id: Id32f72173-7a5d-4dc6-8059-c5443a0c1365
-          Arn: !GetAtt TriggeredByEventFunc.Arn
+        - Id: StateMachineId
+          Arn: !GetAtt UploadObjectStateMachine.Arn
+          RoleArn: !GetAtt StateMachineRole.Arn
 
 
-  PermissionForEvent0ToInvokeLambda:
-    Type: AWS::Lambda::Permission
+  ObjectStatusManagementFunc:
+    Type: AWS::Serverless::Function
     Properties:
-      FunctionName: !Ref TriggeredByEventFunc
+      CodeUri: lambdas/
+      Handler: object_status_mng.handler
+      Runtime: nodejs18.x
+      Architectures:
+        - arm64
+      Environment:
+        Variables:
+          ENVIRONMENT: 
+            Ref: Environment
+
+
+  FailedProcessingSNSTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: "FailedObjectsDetails"
+  
+
+  ProcessingStatusEventRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Description: processing-status
+      EventBusName: !Sub 
+        - "${ENV}-enterprise-service-bus"
+        - ENV: !Ref Environment
+      EventPattern:
+        source: 
+          - "pixometry.image.processing"
+        detail-type: 
+          - "update-object-status"
+      State: ENABLED
+      Targets:
+        - Id: LambdaFunctionForStatusUpdate
+          Arn: !GetAtt ObjectStatusManagementFunc.Arn
+
+  PermissionForEventsToInvokeLambda: 
+    Type: AWS::Lambda::Permission
+    Properties: 
+      FunctionName: !Ref ObjectStatusManagementFunc
       Action: "lambda:InvokeFunction"
       Principal: "events.amazonaws.com"
-      SourceArn: !GetAtt EventRule0.Arn
+      SourceArn: !GetAtt ProcessingStatusEventRule.Arn
+
+  FailedProcessingEventRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Description: failed-processing-status
+      EventBusName: !Sub 
+        - "${ENV}-enterprise-service-bus"
+        - ENV: !Ref Environment
+      EventPattern:
+        source: 
+          - pixometry.image.processing
+        detail-type: 
+          - update-object-status
+      State: ENABLED
+      Targets:
+        - Id: SNSTopic
+          Arn: !Ref FailedProcessingSNSTopic
+
+  PermissionForEventsToInvokeSNS:
+    Type: AWS::SNS::TopicPolicy
+    Properties:
+      PolicyDocument:
+        Statement:
+          - Sid: AllowServices
+            Effect: Allow
+            Principal:
+              Service:
+                - events.amazonaws.com
+            Action: 'sns:Publish'
+            Resource:
+              - !Ref FailedProcessingSNSTopic
+      Topics:
+        - !Ref FailedProcessingSNSTopic
 
 Outputs:
-  EventBridgeBusPutEventApiDev:
-    Description: "API Gateway endpoint URL for Dev stage for TemplateScannerWrapper function"
+  InitiateObjectProcessingApiEndpoint:
+    Description: "API Gateway endpoint URL for initializing the process"
     Value: !Sub 
-      - "https://${APIID}.execute-api.${AWS::Region}.amazonaws.com/Dev/"
-      - APIID: !Ref EventBridgeBusPutEventApi
+      - "https://${APIID}.execute-api.${AWS::Region}.amazonaws.com/${ENV}/"
+      - APIID: !Ref InitiateObjectProcessingApi
+        ENV: !Ref Environment
 
