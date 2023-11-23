@@ -5,9 +5,9 @@ codeuri = "/Users/ktashoska/Documents/Codes/qonoqrd-bitbucket/esb-phase1/lambdas
 runtime = "nodejs18.x"
 architecture = "arm64"
 handler = "initiate_processing.handler"
-source_hash = "ee67261176819ca58ba036ee4d476e4b90b853ac05199b258a95fe527c94ce3d"
+source_hash = "d10d5f46654983d8e7893d96ba3995a49091e1a6b58dc83187e70776e4a406a1"
 manifest_hash = ""
 packagetype = "Zip"
-functions = ["InitiateObjectProcessingFunc", "DownloadObjectToS3Func", "CreateEventFunc", "ObjectStatusManagementFunc"]
+functions = ["InitiateObjectProcessingFunc", "DownloadObjectToS3Func", "CreateEventFunc", "ObjectStatusManagementFunc", "PixometryCallFunc", "UploadToWoodwingFunc"]
 
 [layer_build_definitions]

@@ -2,7 +2,6 @@ AWSTemplateFormatVersion: '2010-09-09'
 Transform: AWS::Serverless-2016-10-31
 Description: >
   Integration API sample
-
   Send event to EventBridge bus with API call
 
 Globals:
@@ -37,8 +36,21 @@ Resources:
           KeyType: HASH
       BillingMode: PAY_PER_REQUEST
       PointInTimeRecoverySpecification:
-          PointInTimeRecoveryEnabled: true
+        PointInTimeRecoveryEnabled: true
 
+  ObjectOverviewTable:
+    Type: AWS::DynamoDB::Table
+    Properties: 
+      AttributeDefinitions: 
+        - AttributeName: object-id
+          AttributeType: S
+      KeySchema: 
+        - AttributeName: object-id
+          KeyType: HASH
+      BillingMode: PAY_PER_REQUEST
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
+      
   INS3Bucket:
     Type: 'AWS::S3::Bucket'
     Properties:
@@ -50,8 +62,37 @@ Resources:
     Type: 'AWS::S3::Bucket'
     Properties:
       BucketName: !Sub 
-      - "${ENV}-out-object-processing"
-      - ENV: !Ref Environment
+        - "${ENV}-out-object-processing"
+        - ENV: !Ref Environment
+      NotificationConfiguration:
+        QueueConfigurations:
+          - Event: s3:ObjectCreated:Put
+            Queue: !Sub 'arn:aws:sqs:${AWS::Region}:${AWS::AccountId}:PixometryObjectsQueue'
+    DependsOn : PixometryObjectsQueuePolicy
+
+  PixometryObjectsQueue: 
+    Type: AWS::SQS::Queue
+    Properties: 
+      QueueName: "PixometryObjectsQueue"
+
+  PixometryObjectsQueuePolicy:
+    Type: AWS::SQS::QueuePolicy
+    Properties:
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              AWS: "*"
+            Action: SQS:*
+            Resource: "*"
+            Condition:
+              ArnLike:
+                aws:SourceArn: "arn:aws:s3:::*"
+      Queues:
+        - Ref: PixometryObjectsQueue
+
+
 
   EventBus:
     Type: AWS::Events::EventBus
@@ -94,8 +135,7 @@ Resources:
           ENVIRONMENT: 
             Ref: Environment
           EVENTBRIDGE_BUS: !GetAtt EventBus.Arn
-          CONFIGURATION_TABLE_NAME:
-            !Select [1, !Split ['/', !GetAtt ConfigurationDetailsTable.Arn]]
+          CONFIGURATION_TABLE_NAME: !Ref ConfigurationDetailsTable
       Policies:
         Statement:
           - Effect: Allow
@@ -213,8 +253,16 @@ Resources:
         - arm64
       Environment:
         Variables:
-          ENVIRONMENT: 
-            Ref: Environment
+          ENVIRONMENT: !Ref Environment
+          OBJECT_TABLE_NAME: !Ref ObjectOverviewTable
+      Policies:
+        Statement:
+          - Effect: Allow
+            Action:
+              - dynamodb:PutItem
+            Resource:
+              - !GetAtt ObjectOverviewTable.Arn
+
 
 
   FailedProcessingSNSTopic:
@@ -239,6 +287,8 @@ Resources:
       Targets:
         - Id: LambdaFunctionForStatusUpdate
           Arn: !GetAtt ObjectStatusManagementFunc.Arn
+        - Id: LambdaFunctionForPixometryCall
+          Arn: !GetAtt PixometryCallFunc.Arn
 
   PermissionForEventsToInvokeLambda: 
     Type: AWS::Lambda::Permission
@@ -260,6 +310,9 @@ Resources:
           - pixometry.image.processing
         detail-type: 
           - update-object-status
+        detail:
+          status:
+            - failed
       State: ENABLED
       Targets:
         - Id: SNSTopic
@@ -280,6 +333,81 @@ Resources:
               - !Ref FailedProcessingSNSTopic
       Topics:
         - !Ref FailedProcessingSNSTopic
+
+
+  PixometryCallFunc:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: lambdas/
+      Handler: pixometry_call.handler
+      Runtime: nodejs18.x
+      Architectures:
+        - arm64
+      Environment:
+        Variables:
+          ENVIRONMENT: 
+            Ref: Environment
+          OUT_BUCKET: 
+            !Ref OUTS3Bucket
+      Policies:
+        Statement:
+          - Effect: Allow
+            Action:
+              - s3:Put*
+            Resource: !Sub 
+              - "${BUCKET}/*"
+              - BUCKET: !GetAtt OUTS3Bucket.Arn
+
+  PermissionForEventsToInvokeLambdaPix: 
+    Type: AWS::Lambda::Permission
+    Properties: 
+      FunctionName: !Ref PixometryCallFunc
+      Action: "lambda:InvokeFunction"
+      Principal: "events.amazonaws.com"
+      SourceArn: !GetAtt ProcessingStatusEventRule.Arn
+
+  UploadToWoodwingFunc:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: lambdas/
+      Handler: upload_object_to_woodwing.handler
+      Runtime: nodejs18.x
+      Architectures:
+        - arm64
+      Environment:
+        Variables:
+          ENVIRONMENT: 
+            Ref: Environment
+          OUT_BUCKET: 
+            !Ref OUTS3Bucket
+          EVENTBRIDGE_BUS: !GetAtt EventBus.Arn
+          OBJECT_OVERVIEW_TABLE_NAME: !Ref ObjectOverviewTable
+      Policies:
+        Statement:
+          - Effect: Allow
+            Action: 'events:PutEvents'
+            Resource: !GetAtt EventBus.Arn
+          - Effect: Allow
+            Action: 'sqs:*'
+            Resource: "*"
+          - Effect: Allow
+            Action:
+              - s3:Get*
+            Resource: !Sub 
+              - "${BUCKET}/*"
+              - BUCKET: !GetAtt OUTS3Bucket.Arn
+          - Effect: Allow
+            Action:
+              - dynamodb:GetItem
+              - dynamodb:PutItem
+            Resource:
+              - !GetAtt ObjectOverviewTable.Arn
+
+  TriggerLambdaFromSQS:
+    Type: AWS::Lambda::EventSourceMapping
+    Properties:
+      EventSourceArn: !GetAtt PixometryObjectsQueue.Arn
+      FunctionName: !Ref UploadToWoodwingFunc
 
 Outputs:
   InitiateObjectProcessingApiEndpoint:

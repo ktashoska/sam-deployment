@@ -29,7 +29,10 @@ export const handler = async (event, context) => {
       detail = {
         "object-id": event['objectId'],
         "status": "failed",
-        "details": event['errorCode']
+        "details": event['errorCode'],
+        "configuration-id": event['configurationId'],
+        "upload-endpoint": event['uploadEndpoint'],
+        "token": event['token']
       };
     }
 

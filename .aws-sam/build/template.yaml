@@ -1,8 +1,6 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Transform: AWS::Serverless-2016-10-31
-Description: 'Integration API sample
-
-  Send event to EventBridge bus with API call
+Description: 'Integration API sample Send event to EventBridge bus with API call
 
   '
 Globals:
@@ -35,6 +33,18 @@ Resources:
       BillingMode: PAY_PER_REQUEST
       PointInTimeRecoverySpecification:
         PointInTimeRecoveryEnabled: true
+  ObjectOverviewTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      AttributeDefinitions:
+      - AttributeName: object-id
+        AttributeType: S
+      KeySchema:
+      - AttributeName: object-id
+        KeyType: HASH
+      BillingMode: PAY_PER_REQUEST
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
   INS3Bucket:
     Type: AWS::S3::Bucket
     Properties:
@@ -51,6 +61,32 @@ Resources:
         - ${ENV}-out-object-processing
         - ENV:
             Ref: Environment
+      NotificationConfiguration:
+        QueueConfigurations:
+        - Event: s3:ObjectCreated:Put
+          Queue:
+            Fn::Sub: arn:aws:sqs:${AWS::Region}:${AWS::AccountId}:PixometryObjectsQueue
+    DependsOn: PixometryObjectsQueuePolicy
+  PixometryObjectsQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: PixometryObjectsQueue
+  PixometryObjectsQueuePolicy:
+    Type: AWS::SQS::QueuePolicy
+    Properties:
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Principal:
+            AWS: '*'
+          Action: SQS:*
+          Resource: '*'
+          Condition:
+            ArnLike:
+              aws:SourceArn: arn:aws:s3:::*
+      Queues:
+      - Ref: PixometryObjectsQueue
   EventBus:
     Type: AWS::Events::EventBus
     Properties:
@@ -99,13 +135,7 @@ Resources:
             - EventBus
             - Arn
           CONFIGURATION_TABLE_NAME:
-            Fn::Select:
-            - 1
-            - Fn::Split:
-              - /
-              - Fn::GetAtt:
-                - ConfigurationDetailsTable
-                - Arn
+            Ref: ConfigurationDetailsTable
       Policies:
         Statement:
         - Effect: Allow
@@ -257,6 +287,17 @@ Resources:
         Variables:
           ENVIRONMENT:
             Ref: Environment
+          OBJECT_TABLE_NAME:
+            Ref: ObjectOverviewTable
+      Policies:
+        Statement:
+        - Effect: Allow
+          Action:
+          - dynamodb:PutItem
+          Resource:
+          - Fn::GetAtt:
+            - ObjectOverviewTable
+            - Arn
     Metadata:
       SamResourceId: ObjectStatusManagementFunc
   FailedProcessingSNSTopic:
@@ -284,6 +325,11 @@ Resources:
           Fn::GetAtt:
           - ObjectStatusManagementFunc
           - Arn
+      - Id: LambdaFunctionForPixometryCall
+        Arn:
+          Fn::GetAtt:
+          - PixometryCallFunc
+          - Arn
   PermissionForEventsToInvokeLambda:
     Type: AWS::Lambda::Permission
     Properties:
@@ -309,6 +355,9 @@ Resources:
         - pixometry.image.processing
         detail-type:
         - update-object-status
+        detail:
+          status:
+          - failed
       State: ENABLED
       Targets:
       - Id: SNSTopic
@@ -329,6 +378,105 @@ Resources:
           - Ref: FailedProcessingSNSTopic
       Topics:
       - Ref: FailedProcessingSNSTopic
+  PixometryCallFunc:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: PixometryCallFunc
+      Handler: pixometry_call.handler
+      Runtime: nodejs18.x
+      Architectures:
+      - arm64
+      Environment:
+        Variables:
+          ENVIRONMENT:
+            Ref: Environment
+          OUT_BUCKET:
+            Ref: OUTS3Bucket
+      Policies:
+        Statement:
+        - Effect: Allow
+          Action:
+          - s3:Put*
+          Resource:
+            Fn::Sub:
+            - ${BUCKET}/*
+            - BUCKET:
+                Fn::GetAtt:
+                - OUTS3Bucket
+                - Arn
+    Metadata:
+      SamResourceId: PixometryCallFunc
+  PermissionForEventsToInvokeLambdaPix:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName:
+        Ref: PixometryCallFunc
+      Action: lambda:InvokeFunction
+      Principal: events.amazonaws.com
+      SourceArn:
+        Fn::GetAtt:
+        - ProcessingStatusEventRule
+        - Arn
+  UploadToWoodwingFunc:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: UploadToWoodwingFunc
+      Handler: upload_object_to_woodwing.handler
+      Runtime: nodejs18.x
+      Architectures:
+      - arm64
+      Environment:
+        Variables:
+          ENVIRONMENT:
+            Ref: Environment
+          OUT_BUCKET:
+            Ref: OUTS3Bucket
+          EVENTBRIDGE_BUS:
+            Fn::GetAtt:
+            - EventBus
+            - Arn
+          OBJECT_OVERVIEW_TABLE_NAME:
+            Ref: ObjectOverviewTable
+      Policies:
+        Statement:
+        - Effect: Allow
+          Action: events:PutEvents
+          Resource:
+            Fn::GetAtt:
+            - EventBus
+            - Arn
+        - Effect: Allow
+          Action: sqs:*
+          Resource: '*'
+        - Effect: Allow
+          Action:
+          - s3:Get*
+          Resource:
+            Fn::Sub:
+            - ${BUCKET}/*
+            - BUCKET:
+                Fn::GetAtt:
+                - OUTS3Bucket
+                - Arn
+        - Effect: Allow
+          Action:
+          - dynamodb:GetItem
+          - dynamodb:PutItem
+          Resource:
+          - Fn::GetAtt:
+            - ObjectOverviewTable
+            - Arn
+    Metadata:
+      SamResourceId: UploadToWoodwingFunc
+  TriggerLambdaFromSQS:
+    Type: AWS::Lambda::EventSourceMapping
+    Properties:
+      EventSourceArn:
+        Fn::GetAtt:
+        - PixometryObjectsQueue
+        - Arn
+      FunctionName:
+        Ref: UploadToWoodwingFunc
 Outputs:
   InitiateObjectProcessingApiEndpoint:
     Description: API Gateway endpoint URL for initializing the process
