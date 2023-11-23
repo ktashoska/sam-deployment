@@ -108,6 +108,10 @@ Resources:
             - ${ENV}ApiPlan
             - ENV:
                 Ref: Environment
+  FailedProcessingSNSTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: FailedObjectsDetails
   InitiateObjectProcessingFunc:
     Type: AWS::Serverless::Function
     Properties:
@@ -136,6 +140,8 @@ Resources:
             - Arn
           CONFIGURATION_TABLE_NAME:
             Ref: ConfigurationDetailsTable
+          TOPIC_ARN:
+            Ref: FailedProcessingSNSTopic
       Policies:
         Statement:
         - Effect: Allow
@@ -197,6 +203,8 @@ Resources:
             Fn::GetAtt:
             - EventBus
             - Arn
+          TOPIC_ARN:
+            Ref: FailedProcessingSNSTopic
       Policies:
         Statement:
         - Effect: Allow
@@ -300,10 +308,6 @@ Resources:
             - Arn
     Metadata:
       SamResourceId: ObjectStatusManagementFunc
-  FailedProcessingSNSTopic:
-    Type: AWS::SNS::Topic
-    Properties:
-      TopicName: FailedObjectsDetails
   ProcessingStatusEventRule:
     Type: AWS::Events::Rule
     Properties:
@@ -392,6 +396,8 @@ Resources:
             Ref: Environment
           OUT_BUCKET:
             Ref: OUTS3Bucket
+          TOPIC_ARN:
+            Ref: FailedProcessingSNSTopic
       Policies:
         Statement:
         - Effect: Allow
@@ -437,6 +443,8 @@ Resources:
             - Arn
           OBJECT_OVERVIEW_TABLE_NAME:
             Ref: ObjectOverviewTable
+          TOPIC_ARN:
+            Ref: FailedProcessingSNSTopic
       Policies:
         Statement:
         - Effect: Allow

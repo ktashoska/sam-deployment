@@ -2,11 +2,13 @@ import {
   EventBridgeClient,
   PutEventsCommand,
 } from "@aws-sdk/client-eventbridge";
+import { publishToSNS } from './publish_to_sns_topic.mjs';
 
 const client = new EventBridgeClient({});
 
 const envVars = {
-  EventBridgeBus: process.env.EVENTBRIDGE_BUS
+  EventBridgeBus: process.env.EVENTBRIDGE_BUS,
+  SNSTopic: process.env.TOPIC_ARN
 }
 export const handler = async (event, context) => {
 
@@ -53,6 +55,7 @@ export const handler = async (event, context) => {
 
   catch (error) {
     console.error("Error in event preparation:", error);
+    publishToSNS(error,envVars.SNSTopic);
     throw error;
   }
 };

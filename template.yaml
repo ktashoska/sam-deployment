@@ -113,6 +113,11 @@ Resources:
             - "${ENV}ApiPlan"
             - ENV: !Ref Environment
 
+  FailedProcessingSNSTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: "FailedObjectsDetails"
+
   InitiateObjectProcessingFunc:
     Type: AWS::Serverless::Function
     Properties:
@@ -136,6 +141,7 @@ Resources:
             Ref: Environment
           EVENTBRIDGE_BUS: !GetAtt EventBus.Arn
           CONFIGURATION_TABLE_NAME: !Ref ConfigurationDetailsTable
+          TOPIC_ARN: !Ref FailedProcessingSNSTopic
       Policies:
         Statement:
           - Effect: Allow
@@ -183,6 +189,7 @@ Resources:
           ENVIRONMENT: 
             Ref: Environment
           EVENTBRIDGE_BUS: !GetAtt EventBus.Arn
+          TOPIC_ARN: !Ref FailedProcessingSNSTopic
       Policies:
         Statement:
           - Effect: Allow
@@ -263,14 +270,6 @@ Resources:
             Resource:
               - !GetAtt ObjectOverviewTable.Arn
 
-
-
-  FailedProcessingSNSTopic:
-    Type: AWS::SNS::Topic
-    Properties:
-      TopicName: "FailedObjectsDetails"
-  
-
   ProcessingStatusEventRule:
     Type: AWS::Events::Rule
     Properties:
@@ -349,6 +348,7 @@ Resources:
             Ref: Environment
           OUT_BUCKET: 
             !Ref OUTS3Bucket
+          TOPIC_ARN: !Ref FailedProcessingSNSTopic
       Policies:
         Statement:
           - Effect: Allow
@@ -382,6 +382,7 @@ Resources:
             !Ref OUTS3Bucket
           EVENTBRIDGE_BUS: !GetAtt EventBus.Arn
           OBJECT_OVERVIEW_TABLE_NAME: !Ref ObjectOverviewTable
+          TOPIC_ARN: !Ref FailedProcessingSNSTopic
       Policies:
         Statement:
           - Effect: Allow

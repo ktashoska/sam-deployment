@@ -2,6 +2,7 @@ import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import { DynamoDBDocumentClient, GetCommand } from "@aws-sdk/lib-dynamodb";
 
 import { S3Client, GetObjectCommand } from "@aws-sdk/client-s3";
+import { publishToSNS } from './publish_to_sns_topic.mjs';
 
 import {
     EventBridgeClient,
@@ -21,7 +22,8 @@ const s3client = new S3Client({});
 const envVars = {
     ObjectOverviewTable: process.env.OBJECT_OVERVIEW_TABLE_NAME,
     EventBridgeBus: process.env.EVENTBRIDGE_BUS,
-    S3_Bucket: process.env.OUT_BUCKET
+    S3_Bucket: process.env.OUT_BUCKET,
+    SNSTopic: process.env.TOPIC_ARN
 }
 
 export const handler = async (event, context) => {
@@ -114,7 +116,8 @@ export const handler = async (event, context) => {
         );
       
 
-    } catch (e) {
-        console.log(e);
+    } catch (error) {
+      publishToSNS(error,envVars.SNSTopic);
+      throw error;
     }
 };
