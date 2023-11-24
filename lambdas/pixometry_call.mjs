@@ -14,7 +14,9 @@ const envVars = {
 }
 
 export const handler = async (event, context) => {
-  try {
+
+  console.log("Prepare pixometry call: ", event);
+  
     const url = event.detail["upload-endpoint"];
     const objectId = event.detail["object-id"];
     const ticket = event.detail["ticket"];
@@ -34,7 +36,7 @@ export const handler = async (event, context) => {
       }
     }
 
-    const buffer = await response.buffer();
+    const buffer = await response.arrayBuffer();
     const key = `${UPLOAD_PATH}pix-${objectId}.jpg`;
 
     const command = new PutObjectCommand({
@@ -42,27 +44,28 @@ export const handler = async (event, context) => {
       Bucket: envVars.OUT_Bucket,
       Key: key,
     });
-
+    try {
     const responseS3 = await client.send(command);
-    console.log(responseS3);
-    if (!responseS3.ETag) {
-      return {
-        success: false,
-        errorCode: "object_not_uploaded_to_S3",
-        objectId: objectId
-      }
-    } else {
-      return {
-        success: true,
-        errorCode: "",
-        objectId: objectId,
-        token: token,
-        uploadEndpoint: event.detail["upload-endpoint"],
-        configurationId: event.detail["configuration-id"]
+    console.log("S3 event: ", responseS3);
+    // if (!responseS3.ETag) {
+    //   return {
+    //     success: false,
+    //     errorCode: "object_not_uploaded_to_S3",
+    //     objectId: objectId
+    //   }
+    // } else {
+    //   return {
+    //     success: true,
+    //     errorCode: "",
+    //     objectId: objectId,
+    //     token: token,
+    //     uploadEndpoint: event.detail["upload-endpoint"],
+    //     configurationId: event.detail["configuration-id"]
 
-      }
-    }
+    //   }
+    // }
   } catch (error) {
+    console.log("Error in pixometry call: ", error);
     publishToSNS(error, envVars.SNSTopic);
     throw error;
   }

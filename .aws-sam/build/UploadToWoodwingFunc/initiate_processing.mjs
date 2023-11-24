@@ -18,6 +18,8 @@ const envVars = {
 
 const putEvents = async (event) => {
 
+  console.log("Woodwing payload: ", event);
+
   try {
 
     const body = JSON.parse(event["body"]);
@@ -59,14 +61,14 @@ const putEvents = async (event) => {
       );
       event_ids.push({ "EventID": response.Entries[0].EventId });
     };
-
+    console.log("Event(s) IDs: ", event_ids);
     return {
       'statusCode': 200,
       'body': event_ids
     };
   } catch (error) {
     console.error("Error in event preparation:", error);
-    publishToSNS(error,envVars.SNSTopic);
+    await publishToSNS(error,envVars.SNSTopic);
     throw error;
   }
 };

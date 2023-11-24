@@ -23,6 +23,16 @@ Parameters:
     Default: channel-processing
     Description: "The action thet will be performed. Example: channel-processing"
 
+
+Mappings: 
+  EnvironmentMappings: 
+    dev: 
+      stage: "Dev"
+    test: 
+      stage: "Test"
+    prod: 
+      stage: "Prod"
+
 Resources:
 
   ConfigurationDetailsTable:
@@ -65,34 +75,8 @@ Resources:
         - "${ENV}-out-object-processing"
         - ENV: !Ref Environment
       NotificationConfiguration:
-        QueueConfigurations:
-          - Event: s3:ObjectCreated:Put
-            Queue: !Sub 'arn:aws:sqs:${AWS::Region}:${AWS::AccountId}:PixometryObjectsQueue'
-    DependsOn : PixometryObjectsQueuePolicy
-
-  PixometryObjectsQueue: 
-    Type: AWS::SQS::Queue
-    Properties: 
-      QueueName: "PixometryObjectsQueue"
-
-  PixometryObjectsQueuePolicy:
-    Type: AWS::SQS::QueuePolicy
-    Properties:
-      PolicyDocument:
-        Version: "2012-10-17"
-        Statement:
-          - Effect: Allow
-            Principal:
-              AWS: "*"
-            Action: SQS:*
-            Resource: "*"
-            Condition:
-              ArnLike:
-                aws:SourceArn: "arn:aws:s3:::*"
-      Queues:
-        - Ref: PixometryObjectsQueue
-
-
+        EventBridgeConfiguration:
+          EventBridgeEnabled: true
 
   EventBus:
     Type: AWS::Events::EventBus
@@ -152,6 +136,9 @@ Resources:
               - dynamodb:GetItem
             Resource:
               - !GetAtt ConfigurationDetailsTable.Arn
+          - Effect: Allow
+            Action: 'sns:Publish'
+            Resource: !Ref FailedProcessingSNSTopic
 
   DownloadObjectToS3Func:
     Type: AWS::Serverless::Function
@@ -167,6 +154,7 @@ Resources:
             Ref: Environment
           IN_BUCKET: 
             !Ref INS3Bucket
+          TOPIC_ARN: !Ref FailedProcessingSNSTopic
       Policies:
         Statement:
           - Effect: Allow
@@ -262,6 +250,7 @@ Resources:
         Variables:
           ENVIRONMENT: !Ref Environment
           OBJECT_TABLE_NAME: !Ref ObjectOverviewTable
+          TOPIC_ARN: !Ref FailedProcessingSNSTopic
       Policies:
         Statement:
           - Effect: Allow
@@ -289,6 +278,23 @@ Resources:
         - Id: LambdaFunctionForPixometryCall
           Arn: !GetAtt PixometryCallFunc.Arn
 
+  WoodwingProcessingStatusEventRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Description: processing-status
+      EventBusName: !Sub 
+        - "${ENV}-enterprise-service-bus"
+        - ENV: !Ref Environment
+      EventPattern:
+        source: 
+          - "woodwing.image.upload"
+        detail-type: 
+          - "update-object-status"
+      State: ENABLED
+      Targets:
+        - Id: LambdaFunctionForStatusUpdate
+          Arn: !GetAtt ObjectStatusManagementFunc.Arn
+
   PermissionForEventsToInvokeLambda: 
     Type: AWS::Lambda::Permission
     Properties: 
@@ -296,6 +302,14 @@ Resources:
       Action: "lambda:InvokeFunction"
       Principal: "events.amazonaws.com"
       SourceArn: !GetAtt ProcessingStatusEventRule.Arn
+
+  PermissionForEventsToInvokeLambda: 
+    Type: AWS::Lambda::Permission
+    Properties: 
+      FunctionName: !Ref ObjectStatusManagementFunc
+      Action: "lambda:InvokeFunction"
+      Principal: "events.amazonaws.com"
+      SourceArn: !GetAtt WoodwingProcessingStatusEventRule.Arn
 
   FailedProcessingEventRule:
     Type: AWS::Events::Rule
@@ -307,6 +321,7 @@ Resources:
       EventPattern:
         source: 
           - pixometry.image.processing
+          - woodwing.image.upload
         detail-type: 
           - update-object-status
         detail:
@@ -404,11 +419,62 @@ Resources:
             Resource:
               - !GetAtt ObjectOverviewTable.Arn
 
-  TriggerLambdaFromSQS:
-    Type: AWS::Lambda::EventSourceMapping
+
+  UploadToWoodwingStateMachine:
+    Type: AWS::Serverless::StateMachine 
     Properties:
-      EventSourceArn: !GetAtt PixometryObjectsQueue.Arn
-      FunctionName: !Ref UploadToWoodwingFunc
+      DefinitionUri: state-machine/upload-to-woodwing-state-machine.asl.yaml
+      DefinitionSubstitutions:
+        UploadToWoodwingFuncArn: !GetAtt UploadToWoodwingFunc.Arn
+        CreateEventFuncArn: !GetAtt CreateEventFunc.Arn
+      Policies: 
+        - LambdaInvokePolicy:
+            FunctionName: !Ref UploadToWoodwingFunc
+        - LambdaInvokePolicy:
+            FunctionName: !Ref CreateEventFunc
+
+  WoodwingStateMachineRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      Policies:
+        - PolicyName: InvokeWoodwingStateMachineRolePolicy
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: 'states:StartExecution'
+                Resource: !GetAtt UploadToWoodwingStateMachine.Arn
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - events.amazonaws.com
+            Action:
+              - 'sts:AssumeRole'
+
+
+  InitiateWoodwingUploadingEventRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Description: initiate-object-uploading
+      EventPattern:
+        source:
+          - aws.s3
+        detail-type:
+          - "Object Created"
+        detail:
+          bucket:
+            name:
+              - !Ref OUTS3Bucket
+      State: ENABLED
+      Targets:
+        - Id: WoodwingStateMachineId
+          Arn: !GetAtt UploadToWoodwingStateMachine.Arn
+          RoleArn: !GetAtt WoodwingStateMachineRole.Arn
+
+
 
 Outputs:
   InitiateObjectProcessingApiEndpoint:
@@ -416,5 +482,8 @@ Outputs:
     Value: !Sub 
       - "https://${APIID}.execute-api.${AWS::Region}.amazonaws.com/${ENV}/"
       - APIID: !Ref InitiateObjectProcessingApi
-        ENV: !Ref Environment
+        ENV: !FindInMap
+          - EnvironmentMappings
+          - !Ref Environment
+          - stage
 

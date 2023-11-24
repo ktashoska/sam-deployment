@@ -12,9 +12,11 @@ const envVars = {
 }
 export const handler = async (event, context) => {
 
-  try {
+    console.log("Create event:", event);
+  
 
     const status = event["success"];
+    const source = event["source"];
     let detail = "";
 
     if (status == true) {
@@ -37,7 +39,7 @@ export const handler = async (event, context) => {
         "token": event['token']
       };
     }
-
+    try {
     const response = await client.send(
       new PutEventsCommand({
         Entries: [
@@ -45,16 +47,17 @@ export const handler = async (event, context) => {
             Detail: JSON.stringify(detail),
             DetailType: "update-object-status",
             Resources: [],
-            Source: "pixometry.image.processing",
+            Source: source,
             EventBusName: envVars.EventBridgeBus
           },
         ],
       }),
     );
+    console.log("Event created : ", response.Entries[0].EventId + " for source " + source);
   }
 
   catch (error) {
-    console.error("Error in event preparation:", error);
+    console.error("Error in create event:", error);
     publishToSNS(error,envVars.SNSTopic);
     throw error;
   }

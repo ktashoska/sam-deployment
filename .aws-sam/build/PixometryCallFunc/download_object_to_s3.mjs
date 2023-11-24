@@ -1,5 +1,7 @@
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 const client = new S3Client({});
+
+import { publishToSNS } from './publish_to_sns_topic.mjs';
 // packages from layer
 import fetch from "node-fetch";
 import imageType from "image-type";
@@ -12,10 +14,13 @@ const MAX_FILE_SIZE = 1024 * 1024 * 12; // 12MB
 const ALLOWED_TYPES = ['jpg', 'png', 'bmp'];
 
 const envVars = {
-  IN_Bucket: process.env.IN_BUCKET
+  IN_Bucket: process.env.IN_BUCKET,
+  SNSTopic: process.env.TOPIC_ARN
 }
 
 export const handler = async (event, context) => {
+
+  console.log("Download image from Woodwing:", event);
 
   const url = event.detail["download-endpoint"];
   const objectId = event.detail["object-id"];
@@ -38,7 +43,7 @@ export const handler = async (event, context) => {
     }
   }
 
-  const buffer = await response.buffer();
+  const buffer = await response.arrayBuffer();
 
   // if (buffer.byteLength > MAX_FILE_SIZE) {
   //   return {
@@ -80,27 +85,28 @@ export const handler = async (event, context) => {
     const response = await client.send(command);
     if (!response.ETag) {
       return {
+        eventOrg: event,
         success: false,
         errorCode: "object_not_uploaded_to_S3",
-        objectId: objectId
+        objectId: objectId,
+        source: "pixometry.image.processing"
       }
     } else {
       return {
+        eventOrg: event,
         success: true,
         errorCode: "",
         objectId: objectId,
         token: token,
         uploadEndpoint: event.detail["upload-endpoint"],
-        configurationId: event.detail["configuration-id"]
-
+        configurationId: event.detail["configuration-id"],
+        source: "pixometry.image.processing"
       }
     }
-  } catch (err) {
-    return {
-      success: false,
-      errorCode: "Error" + err,
-      objectId: objectId
-    }
+  } catch (error) {
+    console.error("Error in download from woodwing:", error);
+    publishToSNS(error,envVars.SNSTopic);
+    throw error;
   }
 
 };

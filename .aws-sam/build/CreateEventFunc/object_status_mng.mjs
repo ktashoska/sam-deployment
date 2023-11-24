@@ -1,13 +1,17 @@
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import { DynamoDBDocumentClient, PutCommand } from "@aws-sdk/lib-dynamodb";
+import { publishToSNS } from './publish_to_sns_topic.mjs';
 
 const dynamoDBClient = new DynamoDBClient();
 const docClient = new DynamoDBDocumentClient(dynamoDBClient);
   
   const envVars = {
-    DynamoDBTable: process.env.OBJECT_TABLE_NAME
+    DynamoDBTable: process.env.OBJECT_TABLE_NAME,
+    SNSTopic: process.env.TOPIC_ARN
   }
   export const handler = async (event, context) => {
+
+    console.log("Object status tracking: ", event);
     try {
       const body = event["detail"];
       const status = body["status"];
@@ -43,8 +47,8 @@ const docClient = new DynamoDBDocumentClient(dynamoDBClient);
     }
   
     catch (error) {
-      console.error("Error in object insert:", error);
+      console.error("Error in DynamoDB object insert:", error);
+      publishToSNS(error, envVars.SNSTopic);
       throw error;
-      //send SNS
     }
   };
