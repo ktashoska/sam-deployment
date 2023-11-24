@@ -4,18 +4,10 @@ import { DynamoDBDocumentClient, GetCommand } from "@aws-sdk/lib-dynamodb";
 import { S3Client, GetObjectCommand } from "@aws-sdk/client-s3";
 import { publishToSNS } from './publish_to_sns_topic.mjs';
 
-import {
-  EventBridgeClient,
-} from "@aws-sdk/client-eventbridge";
-
-const eventClient = new EventBridgeClient({});
-
-
 import fetch from "node-fetch";
 
 const dynamoDBClient = new DynamoDBClient();
 const docClient = new DynamoDBDocumentClient(dynamoDBClient);
-
 const s3client = new S3Client({});
 
 const envVars = {
@@ -25,6 +17,16 @@ const envVars = {
   SNSTopic: process.env.TOPIC_ARN
 }
 
+/**
+ * 
+ * When Pixometry place object in OUT bucket, an event on Object create is generated in Default EventBridge bus.
+ * On that event, an Step function (state machine) is initiated. First step of the StepFunction is uploading the object
+ * to Woodwing.
+ * 
+ * Based on object id, the object record is read from DynamoDB table and upload URL and token are known.
+ * Output of this function is payload for the event.
+ */
+
 export const handler = async (event, context) => {
   console.log("Upload object to woodwing: ", event);
   try {
@@ -32,6 +34,7 @@ export const handler = async (event, context) => {
     const temp1 = object_key.split('-');
     const temp2 = temp1[2].split('.');
     const object_id = temp2[0];
+    //Get object record from status table by object-id
     const commandGet = new GetCommand({
       TableName: envVars.ObjectOverviewTable,
       Key: {
@@ -45,7 +48,7 @@ export const handler = async (event, context) => {
     let configuration_id = object_val['Item']['configuration-id']
 
     //Read data from S3
-    const input = { 
+    const input = {
       Bucket: envVars.S3_Bucket,
       Key: object_key
     };
@@ -67,27 +70,29 @@ export const handler = async (event, context) => {
       console.log(response);
       return {
         success: false,
-        errorCode: "error_uploading_to_woodwing",
+        status: "error_uploading_to_woodwing",
         objectId: object_id,
         token: token,
         uploadEndpoint: upload_url,
         configurationId: configuration_id,
-        source: "woodwing.image.upload"
+        source: "woodwing.image.upload",
+        eventOrg: event
       }
     } else {
       return {
         success: true,
-        errorCode: "",
+        status: "success",
         objectId: object_id,
         token: token,
         uploadEndpoint: upload_url,
         configurationId: configuration_id,
-        source: "woodwing.image.upload"
+        source: "woodwing.image.upload",
+        eventOrg: event
       }
     }
   } catch (error) {
     console.log("Error in upload object to woodwing:", error);
-    publishToSNS(error, envVars.SNSTopic);
+    await publishToSNS(error, envVars.SNSTopic);
     throw error;
   }
 };

@@ -39,8 +39,12 @@ const putEvents = async (event) => {
       },
     });
     const configuration_val = await docClient.send(commandGet);
-    let source = configuration_val['Item']['source']//"woodwing.image.processing";
-    let detailType = configuration_val['Item']['action']//"channel-processing";
+    const source = configuration_val['Item']['source'];//"woodwing.image.processing";
+    const detailType = configuration_val['Item']['action'];//"channel-processing";
+    const download_endpoint = configuration_val['Item']['download-endpoint'];
+    const upload_endpoint = configuration_val['Item']['upload-endpoint'];
+    const channel_id = configuration_val['Item']['channel-id'];
+    const schema_id = configuration_val['Item']['schema-id'];
 
     let event_ids = [];
 
@@ -48,11 +52,11 @@ const putEvents = async (event) => {
       let detail = {
         "configuration-id": body['configuration-id'],
         "object-id": body['object-ids'][i],
-        "download-endpoint": body['download-endpoint'],
-        "upload-endpoint": body['upload-endpoint'],
+        "download-endpoint": download_endpoint,
+        "upload-endpoint": upload_endpoint,
         "ticket": body['ticket'],
-        "channel-id": configuration_val['Item']['channel-id'],
-        "schema-id": configuration_val['Item']['schema-id']
+        "channel-id": channel_id,
+        "schema-id": schema_id
       };
 
       const response = await client.send(

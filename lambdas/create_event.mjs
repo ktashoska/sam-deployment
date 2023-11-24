@@ -31,17 +31,20 @@ export const handler = async (event, context) => {
         "object-id": event['objectId'],
         "upload-endpoint": event['uploadEndpoint'],
         "token": event['token'],
-        "status": "uploaded_to_s3"
+        "status": event['status'],
+        "details": event['status'],
+        "event": event['eventOrg']
       };
     }
     else {
       detail = {
         "object-id": event['objectId'],
         "status": "failed",
-        "details": event['errorCode'],
+        "details": event['status'],
         "configuration-id": event['configurationId'],
         "upload-endpoint": event['uploadEndpoint'],
-        "token": event['token']
+        "token": event['token'],
+        "event": event['eventOrg']
       };
     }
     try {

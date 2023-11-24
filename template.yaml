@@ -292,7 +292,7 @@ Resources:
           - "update-object-status"
       State: ENABLED
       Targets:
-        - Id: LambdaFunctionForStatusUpdate
+        - Id: LambdaFunctionForStatusUpdate2
           Arn: !GetAtt ObjectStatusManagementFunc.Arn
 
   PermissionForEventsToInvokeLambda: 
@@ -303,7 +303,7 @@ Resources:
       Principal: "events.amazonaws.com"
       SourceArn: !GetAtt ProcessingStatusEventRule.Arn
 
-  PermissionForEventsToInvokeLambda: 
+  PermissionForEventsWoodwingToInvokeLambda: 
     Type: AWS::Lambda::Permission
     Properties: 
       FunctionName: !Ref ObjectStatusManagementFunc

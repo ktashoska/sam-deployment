@@ -343,12 +343,23 @@ Resources:
         - update-object-status
       State: ENABLED
       Targets:
-      - Id: LambdaFunctionForStatusUpdate
+      - Id: LambdaFunctionForStatusUpdate2
         Arn:
           Fn::GetAtt:
           - ObjectStatusManagementFunc
           - Arn
   PermissionForEventsToInvokeLambda:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName:
+        Ref: ObjectStatusManagementFunc
+      Action: lambda:InvokeFunction
+      Principal: events.amazonaws.com
+      SourceArn:
+        Fn::GetAtt:
+        - ProcessingStatusEventRule
+        - Arn
+  PermissionForEventsWoodwingToInvokeLambda:
     Type: AWS::Lambda::Permission
     Properties:
       FunctionName:

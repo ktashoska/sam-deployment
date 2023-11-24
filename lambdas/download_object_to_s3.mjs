@@ -43,11 +43,18 @@ export const handler = async (event, context) => {
   })
     .catch(() => ({ ok: false }));
 
+    console.log("URL", response);
+
   if (!response.ok) {
     return {
+      eventOrg: event,
       success: false,
-      errorCode: "object_cannot_be_fetched",
-      objectId: objectId
+      errorCode: "object_cannot_be_downloaded_from_woodwing",
+      objectId: objectId,
+      token: token,
+      uploadEndpoint: event.detail["upload-endpoint"],
+      configurationId: event.detail["configuration-id"],
+      source: "pixometry.image.processing"
     }
   }
 
@@ -95,15 +102,18 @@ export const handler = async (event, context) => {
       return {
         eventOrg: event,
         success: false,
-        errorCode: "object_not_uploaded_to_S3",
+        status: "error_uploading_to_S3",
         objectId: objectId,
+        token: token,
+        uploadEndpoint: event.detail["upload-endpoint"],
+        configurationId: event.detail["configuration-id"],
         source: "pixometry.image.processing"
       }
     } else {
       return {
         eventOrg: event,
         success: true,
-        errorCode: "",
+        status: "processing",
         objectId: objectId,
         token: token,
         uploadEndpoint: event.detail["upload-endpoint"],

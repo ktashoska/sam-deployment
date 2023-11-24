@@ -16,6 +16,15 @@ const envVars = {
   SNSTopic: process.env.TOPIC_ARN
 }
 
+/**
+ * 
+ * When Woodwing iniitate the image processing, is starts with API call
+ * where payload is processed to this Lambda function.
+ * 
+ * The Lambda function, reads configuration from Configuration table based on configuration_id
+ * and creates event in EventBridge bus, to strat the image processing.
+ */
+
 const putEvents = async (event) => {
 
   console.log("Woodwing payload: ", event);
@@ -30,8 +39,12 @@ const putEvents = async (event) => {
       },
     });
     const configuration_val = await docClient.send(commandGet);
-    let source = configuration_val['Item']['source']//"woodwing.image.processing";
-    let detailType = configuration_val['Item']['action']//"channel-processing";
+    const source = configuration_val['Item']['source'];//"woodwing.image.processing";
+    const detailType = configuration_val['Item']['action'];//"channel-processing";
+    const download_endpoint = configuration_val['Item']['download-endpoint'];
+    const upload_endpoint = configuration_val['Item']['upload-endpoint'];
+    const channel_id = configuration_val['Item']['channel-id'];
+    const schema_id = configuration_val['Item']['schema-id'];
 
     let event_ids = [];
 
@@ -39,11 +52,11 @@ const putEvents = async (event) => {
       let detail = {
         "configuration-id": body['configuration-id'],
         "object-id": body['object-ids'][i],
-        "download-endpoint": body['download-endpoint'],
-        "upload-endpoint": body['upload-endpoint'],
+        "download-endpoint": download_endpoint,
+        "upload-endpoint": upload_endpoint,
         "ticket": body['ticket'],
-        "channel-id": configuration_val['Item']['channel-id'],
-        "schema-id": configuration_val['Item']['schema-id']
+        "channel-id": channel_id,
+        "schema-id": schema_id
       };
 
       const response = await client.send(
@@ -60,6 +73,7 @@ const putEvents = async (event) => {
         }),
       );
       event_ids.push({ "EventID": response.Entries[0].EventId });
+      console.log("Event", response);
     };
     console.log("Event(s) IDs: ", event_ids);
     return {
@@ -68,7 +82,7 @@ const putEvents = async (event) => {
     };
   } catch (error) {
     console.error("Error in event preparation:", error);
-    await publishToSNS(error,envVars.SNSTopic);
+    await publishToSNS(error, envVars.SNSTopic);
     throw error;
   }
 };

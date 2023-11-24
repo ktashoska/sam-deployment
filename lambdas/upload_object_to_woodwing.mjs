@@ -70,22 +70,24 @@ export const handler = async (event, context) => {
       console.log(response);
       return {
         success: false,
-        errorCode: "error_uploading_to_woodwing",
+        status: "error_uploading_to_woodwing",
         objectId: object_id,
         token: token,
         uploadEndpoint: upload_url,
         configurationId: configuration_id,
-        source: "woodwing.image.upload"
+        source: "woodwing.image.upload",
+        eventOrg: event
       }
     } else {
       return {
         success: true,
-        errorCode: "",
+        status: "success",
         objectId: object_id,
         token: token,
         uploadEndpoint: upload_url,
         configurationId: configuration_id,
-        source: "woodwing.image.upload"
+        source: "woodwing.image.upload",
+        eventOrg: event
       }
     }
   } catch (error) {

@@ -18,6 +18,17 @@ const envVars = {
 export const handler = async (event, context) => {
 
   console.log("Object status tracking: ", event);
+
+
+  // detail: {
+  //   'configuration-id': '0671F841-03A4-4CC6-ABFF-9B5CC8610938',
+  //   'object-id': 'e743b',
+  //   'upload-endpoint': 'https://via.placeholder.com/150',
+  //   token: 'Bearer 1234-rtyu-6789-234f',
+  //   status: 'uploaded_to_s3'
+  // }
+
+
   try {
     const body = event["detail"];
     const status = body["status"];
@@ -30,7 +41,8 @@ export const handler = async (event, context) => {
         "object-id": body['object-id'],
         "upload-endpoint": body['upload-endpoint'],
         "token": body['token'],
-        "status": "uploaded_to_s3"
+        "status": body["status"],
+        "details": body['details']
       };
     }
     else {
