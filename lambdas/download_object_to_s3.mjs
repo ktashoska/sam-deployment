@@ -1,11 +1,9 @@
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
-const client = new S3Client({});
-
 import { publishToSNS } from './publish_to_sns_topic.mjs';
-// packages from layer
 import fetch from "node-fetch";
 import imageType from "image-type";
 
+const client = new S3Client({});
 // folder in bucket where files are saved
 const UPLOAD_PATH = 'pixometry/';
 // max allowed image size
@@ -17,6 +15,16 @@ const envVars = {
   IN_Bucket: process.env.IN_BUCKET,
   SNSTopic: process.env.TOPIC_ARN
 }
+
+/**
+ * 
+ * When payload from Woodwing is received and an event in EventBridge bus is created, 
+ * as trigger to the event is StepFunction (state machine) where first step is to download
+ * image from Woodwing to S3 bucket.
+ * 
+ * Some code lines are commented as an additional check options before image is 
+ * downloaded to S3 for further processing.
+ */
 
 export const handler = async (event, context) => {
 
@@ -105,7 +113,7 @@ export const handler = async (event, context) => {
     }
   } catch (error) {
     console.error("Error in download from woodwing:", error);
-    publishToSNS(error,envVars.SNSTopic);
+    await publishToSNS(error,envVars.SNSTopic);
     throw error;
   }
 

@@ -10,6 +10,11 @@ const envVars = {
   EventBridgeBus: process.env.EVENTBRIDGE_BUS,
   SNSTopic: process.env.TOPIC_ARN
 }
+/**
+ * 
+ * This function creates event for tracking image processing status.
+ * Event is created in EventBridge bus.
+ */
 export const handler = async (event, context) => {
 
     console.log("Create event:", event);
@@ -58,7 +63,7 @@ export const handler = async (event, context) => {
 
   catch (error) {
     console.error("Error in create event:", error);
-    publishToSNS(error,envVars.SNSTopic);
+    await publishToSNS(error,envVars.SNSTopic);
     throw error;
   }
 };

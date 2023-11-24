@@ -16,6 +16,15 @@ const envVars = {
   SNSTopic: process.env.TOPIC_ARN
 }
 
+/**
+ * 
+ * When Woodwing iniitate the image processing, is starts with API call
+ * where payload is processed to this Lambda function.
+ * 
+ * The Lambda function, reads configuration from Configuration table based on configuration_id
+ * and creates event in EventBridge bus, to strat the image processing.
+ */
+
 const putEvents = async (event) => {
 
   console.log("Woodwing payload: ", event);
@@ -68,7 +77,7 @@ const putEvents = async (event) => {
     };
   } catch (error) {
     console.error("Error in event preparation:", error);
-    await publishToSNS(error,envVars.SNSTopic);
+    await publishToSNS(error, envVars.SNSTopic);
     throw error;
   }
 };

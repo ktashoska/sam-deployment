@@ -1,6 +1,10 @@
 import { SNSClient, PublishCommand } from "@aws-sdk/client-sns";
 export const snsClient = new SNSClient({});
 
+/**
+ * 
+ * This is helper function that publish to SNS topic in case of error in processing.
+ */
 export const publishToSNS = async (
     message,
     topicArn,
