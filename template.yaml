@@ -99,7 +99,6 @@ Resources:
 
   FailedProcessingSNSTopic:
     Type: AWS::SNS::Topic
-    Properties:
 
   InitiateObjectProcessingFunc:
     Type: AWS::Serverless::Function
