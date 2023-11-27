@@ -23,16 +23,6 @@ Parameters:
     Default: channel-processing
     Description: "The action thet will be performed. Example: channel-processing"
 
-
-Mappings: 
-  EnvironmentMappings: 
-    dev: 
-      stage: "Dev"
-    test: 
-      stage: "Test"
-    prod: 
-      stage: "Prod"
-
 Resources:
 
   ConfigurationDetailsTable:
