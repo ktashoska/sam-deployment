@@ -19,7 +19,7 @@ confirm_changeset = false
 region = "eu-west-1"
 s3_prefix = "esb-dev"
 capabilities = "CAPABILITY_IAM"
-parameter_overrides = "Environment=\"dev\" Source=\"woodwing.image.processing\" Action=\"channel-processing\""
+parameter_overrides = "Environment=\"test\" Source=\"woodwing.image.processing\" Action=\"channel-processing\""
 image_repositories = []
 stack_name = "esb-dev"
 resolve_s3 = true
