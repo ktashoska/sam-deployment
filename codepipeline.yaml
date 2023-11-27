@@ -244,7 +244,7 @@ Resources:
                       {"name": "ENV_CLOUDFORMATION_EXECUTION_ROLE", "value": "${TestingCloudFormationExecutionRole}"},
                       {"name": "ENV_BUCKET", "value": "${TestingArtifactBucket}"},
                       {"name": "ENV_IMAGE_REPOSITORY", "value": "${TestingImageRepository}"},
-                      {"name": "ENV_TEMPLATE_ENVS", "value": "test"},
+                      {"name": "ENV_TEMPLATE_ENVS", "value": "test"}
                     ]
                 InputArtifacts:
                   - Name: BuildArtifactAsZip
