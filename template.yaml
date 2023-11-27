@@ -88,7 +88,7 @@ Resources:
   InitiateObjectProcessingApi:
     Type: AWS::Serverless::Api
     Properties:
-      StageName: Dev
+      StageName: !Ref Environment
       Auth:
         ApiKeyRequired: true
         UsagePlan:
@@ -480,8 +480,5 @@ Outputs:
     Value: !Sub 
       - "https://${APIID}.execute-api.${AWS::Region}.amazonaws.com/${ENV}/"
       - APIID: !Ref InitiateObjectProcessingApi
-        ENV: !FindInMap
-          - EnvironmentMappings
-          - !Ref Environment
-          - stage
+        ENV: !Ref Environment
 
