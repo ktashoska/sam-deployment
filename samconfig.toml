@@ -4,7 +4,7 @@ version = 0.1
 
 [default]
 [default.global.parameters]
-stack_name = "sam-deployment"
+stack_name = "esb-dev"
 
 [default.build.parameters]
 cached = true
