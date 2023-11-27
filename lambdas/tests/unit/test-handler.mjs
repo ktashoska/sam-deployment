@@ -1,6 +1,5 @@
 'use strict';
 
-import { handler } from '../../put_event.mjs';
 import { expect } from 'chai';
 var event, context;
 
