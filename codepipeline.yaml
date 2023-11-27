@@ -47,13 +47,13 @@ Parameters:
     Default: "esb-test"
   TestingPipelineExecutionRole:
     Type: String
-    Default: "arn:aws:iam::738903990843:role/aws-sam-cli-managed-dev-pipel-PipelineExecutionRole-gMv2tshSFBar"
+    Default: "arn:aws:iam::738903990843:role/aws-sam-cli-managed-test-pipe-PipelineExecutionRole-Fz7ebQn4Ge5Z"
   TestingCloudFormationExecutionRole:
     Type: String
-    Default: "arn:aws:iam::738903990843:role/aws-sam-cli-managed-dev-p-CloudFormationExecutionRo-uMnK4IeYnE97"
+    Default: "arn:aws:iam::738903990843:role/aws-sam-cli-managed-test--CloudFormationExecutionRo-RiqSpkYwP3ND"
   TestingArtifactBucket:
     Type: String
-    Default: "aws-sam-cli-managed-dev-pipeline-artifactsbucket-1mlj7cesw5ky2"
+    Default: "aws-sam-cli-managed-test-pipeline--artifactsbucket-ze8o1emvzqxz"
   TestingImageRepository:
     Type: String
     # If there are functions with "Image" PackageType in your template,
@@ -243,8 +243,8 @@ Resources:
                       {"name": "ENV_PIPELINE_EXECUTION_ROLE", "value": "${TestingPipelineExecutionRole}"},
                       {"name": "ENV_CLOUDFORMATION_EXECUTION_ROLE", "value": "${TestingCloudFormationExecutionRole}"},
                       {"name": "ENV_BUCKET", "value": "${TestingArtifactBucket}"},
-                      {"name": "ENV_TEMPLATE_ENVS", "value": "dev"},
-                      {"name": "ENV_IMAGE_REPOSITORY", "value": "${TestingImageRepository}"}
+                      {"name": "ENV_IMAGE_REPOSITORY", "value": "${TestingImageRepository}"},
+                      {"name": "ENV_TEMPLATE_ENVS", "value": "test"},
                     ]
                 InputArtifacts:
                   - Name: BuildArtifactAsZip
@@ -292,8 +292,8 @@ Resources:
                       {"name": "ENV_PIPELINE_EXECUTION_ROLE", "value": "${ProdPipelineExecutionRole}"},
                       {"name": "ENV_CLOUDFORMATION_EXECUTION_ROLE", "value": "${ProdCloudFormationExecutionExeRole}"},
                       {"name": "ENV_BUCKET", "value": "${ProdArtifactBucket}"},
-                      {"name": "ENV_TEMPLATE_ENVS", "value": "prod"},
-                      {"name": "ENV_IMAGE_REPOSITORY", "value": "${ProdImageRepository}"}
+                      {"name": "ENV_IMAGE_REPOSITORY", "value": "${ProdImageRepository}"},
+                      {"name": "ENV_TEMPLATE_ENVS", "value": "prod"}
                     ]
                 InputArtifacts:
                   - Name: BuildArtifactAsZip
@@ -431,7 +431,7 @@ Resources:
                   - "codebuild:BatchGetBuilds"
                 Resource:
                   # Uncomment the line below to enable the unit-tests
-                  - !GetAtt CodeBuildProjectUnitTest.Arn
+                  # - !GetAtt CodeBuildProjectUnitTest.Arn
                   - !If
                     - IsFeatureBranchPipeline
                     - !GetAtt CodeBuildProjectBuildAndDeployFeature.Arn
@@ -629,9 +629,9 @@ Resources:
   #     Artifacts:
   #       Type: CODEPIPELINE
   #     Environment:
-  #       Type: ARM_CONTAINER
+  #       Type: LINUX_CONTAINER
   #       ComputeType: BUILD_GENERAL1_SMALL
-  #       Image: aws/codebuild/amazonlinux2-aarch64-standard:3.0
+  #       Image: aws/codebuild/amazonlinux2-x86_64-standard:3.0
   #     ServiceRole: !GetAtt CodeBuildServiceRole.Arn
   #     Source:
   #       Type: CODEPIPELINE
